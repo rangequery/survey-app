@@ -1,0 +1,230 @@
+{% extends 'base.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "Sondages" %} | {{ block.super }}{% endblock %}
+
+{% block content %}
+<div class="dashboard-bg position-absolute top-0 start-0 w-100 h-100" style="z-index:-1;"></div>
+<div class="row mb-4 align-items-center">
+    <div class="col-md-8">
+        <h1 class="mb-4 fw-bold">{% trans "Sondages" %}</h1>
+    </div>
+    <div class="col-md-4 text-end">
+        {% if user.is_authenticated %}
+        <a href="{% url 'surveys:create_survey' %}" class="btn btn-lg btn-gradient shadow-lg animate__animated animate__pulse animate__infinite">
+            <i class="bi bi-plus-circle me-2"></i>{% trans "Créer un sondage" %}
+        </a>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Statistiques globales -->
+<div class="row mb-4 g-3">
+    <div class="col-6 col-md-3">
+        <div class="card stat-card text-center border-0 shadow-sm gradient-blue text-white">
+            <div class="card-body">
+                <div class="display-6 fw-bold"><i class="bi bi-clipboard-data me-2"></i>{{ surveys|length }}</div>
+                <div class="small">{% trans "Total Sondages" %}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card stat-card text-center border-0 shadow-sm gradient-green text-white">
+            <div class="card-body">
+                <div class="display-6 fw-bold"><i class="bi bi-bar-chart-line me-2"></i>{{ total_responses }}</div>
+                <div class="small">{% trans "Total Réponses" %}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card stat-card text-center border-0 shadow-sm gradient-purple text-white">
+            <div class="card-body">
+                <div class="display-6 fw-bold"><i class="bi bi-lightning-charge me-2"></i>{{ active_surveys }}</div>
+                <div class="small">{% trans "Actifs" %}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card stat-card text-center border-0 shadow-sm gradient-gray text-white">
+            <div class="card-body">
+                <div class="display-6 fw-bold"><i class="bi bi-archive me-2"></i>{{ closed_surveys }}</div>
+                <div class="small">{% trans "Fermés" %}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-md-12 mt-2">
+        <div class="card stat-card text-center border-0 shadow-sm gradient-blue text-white">
+            <div class="card-body">
+                <div class="fw-bold fs-5"><i class="bi bi-graph-up-arrow me-2"></i>{% trans "Taux de participation moyen" %} : <span id="avg-completion">{{ completion_percentage }}%</span></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card mb-4 p-3 shadow-sm">
+    <form method="get" class="row g-3 align-items-end">
+        <div class="col-md-4">
+            <input type="text" name="search" class="form-control" placeholder="{% trans 'Rechercher...' %}" value="{{ request.GET.search }}">
+        </div>
+        <div class="col-md-2">
+            {{ filter_form.status.label_tag }}
+            <select name="{{ filter_form.status.html_name|default:filter_form.status.name }}" id="{{ filter_form.status.auto_id }}" class="form-select">
+                {% for choice in filter_form.status.field.choices %}
+                    <option value="{{ choice.0 }}" {% if filter_form.status.value == choice.0 %}selected{% endif %}>{{ choice.1 }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2">
+            {{ filter_form.creator.label_tag }}
+            <select name="{{ filter_form.creator.html_name|default:filter_form.creator.name }}" id="{{ filter_form.creator.auto_id }}" class="form-select">
+                {% for choice in filter_form.creator.field.choices %}
+                    <option value="{{ choice.0 }}" {% if filter_form.creator.value == choice.0 %}selected{% endif %}>{{ choice.1 }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2">
+            <button class="btn btn-primary w-100" type="submit"><i class="bi bi-search me-1"></i>{% trans "Filtrer" %}</button>
+        </div>
+        <div class="col-md-2">
+            <a href="{% url 'surveys:list' %}" class="btn btn-outline-secondary w-100"><i class="bi bi-x-circle me-1"></i>{% trans "Effacer" %}</a>
+        </div>
+    </form>
+</div>
+
+<!-- Grille de sondages -->
+<div class="row g-4">
+    {% for survey in surveys %}
+    <div class="col-12 col-md-6 col-lg-4">
+        <div class="card survey-card h-100 border-0 shadow-lg position-relative animate__animated animate__fadeInUp">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span class="badge {% if survey.is_active %}bg-success{% else %}bg-secondary{% endif %} px-3 py-2 fs-6">{% if survey.is_active %}{% trans "Actif" %}{% else %}{% trans "Inactif" %}{% endif %}</span>
+                    <span class="text-muted small"><i class="bi bi-calendar me-1"></i>{{ survey.created_at|date:"d/m/Y" }}</span>
+                    {% if survey.created_at > now|date:'U'|add:'-259200'|date:'U' %}
+                        <span class="badge bg-warning text-dark ms-2">{% trans "Nouveau" %}</span>
+                    {% endif %}
+                </div>
+                <h4 class="fw-bold mb-1">{{ survey.title }}</h4>
+                <div class="mb-2 text-muted">{{ survey.description|truncatechars:60 }}</div>
+                <div class="d-flex align-items-center mb-2 gap-2">
+                    <i class="bi bi-person me-1"></i> <span class="me-2">{{ survey.creator.username }}</span>
+                    <i class="bi bi-question-circle me-1"></i> <span class="me-2">{{ survey.get_questions.count }} {% trans "questions" %}</span>
+                    <span class="badge bg-primary"><i class="bi bi-bar-chart me-1"></i>{{ survey.responses.filter.is_complete|length }} {% trans "réponses" %}</span>
+                </div>
+                <div class="mb-2">
+                    {% with percent=survey_completion_percentages.survey.id %}
+                        {% if percent is not None %}
+                        <div class="progress" style="height: 0.7rem;">
+                            <div class="progress-bar bg-info" role="progressbar" style="width: {{ percent }}%;" aria-valuenow="{{ percent }}" aria-valuemin="0" aria-valuemax="100"></div>
+                        </div>
+                        <div class="small text-muted mt-1">{{ percent }}% {% trans "de complétion" %}</div>
+                        {% endif %}
+                    {% endwith %}
+                </div>
+                <div class="d-flex gap-2 mt-2">
+                    <a href="{% url 'surveys:detail' survey.pk %}" class="btn btn-outline-primary btn-sm flex-fill"><i class="bi bi-eye me-1"></i>{% trans "Voir les détails" %}</a>
+                    {% if survey.is_active %}
+                    <a href="{% url 'surveys:take_survey' survey.pk %}" class="btn btn-primary btn-sm flex-fill"><i class="bi bi-clipboard-check me-1"></i>{% trans "Répondre" %}</a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <div class="col-12">
+        <div class="alert alert-info text-center">{% trans "Aucun sondage trouvé." %}</div>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
+<style>
+.dashboard-bg {
+    background: linear-gradient(120deg, #e0e7ff 0%, #f5f7fa 100%);
+    min-height: 100vh;
+    opacity: 0.5;
+}
+.btn-gradient {
+    background: linear-gradient(90deg, #6366f1 0%, #a5b4fc 100%);
+    color: #fff !important;
+    border: none;
+}
+.btn-gradient:hover {
+    background: linear-gradient(90deg, #818cf8 0%, #6366f1 100%);
+    color: #fff !important;
+    box-shadow: 0 4px 24px rgba(99,102,241,0.15);
+}
+.gradient-blue { background: linear-gradient(90deg, #6366f1 0%, #60a5fa 100%); }
+.gradient-green { background: linear-gradient(90deg, #34d399 0%, #6ee7b7 100%); }
+.gradient-purple { background: linear-gradient(90deg, #a78bfa 0%, #6366f1 100%); }
+.gradient-gray { background: linear-gradient(90deg, #64748b 0%, #a1a1aa 100%); }
+.survey-card {
+    transition: transform 0.2s, box-shadow 0.2s;
+    border-radius: 1.2rem;
+    background: #fff;
+}
+.survey-card:hover {
+    transform: translateY(-8px) scale(1.02);
+    box-shadow: 0 8px 32px rgba(99,102,241,0.12);
+    border: 1.5px solid #6366f1;
+}
+.stat-card {
+    border-radius: 1.2rem;
+    min-height: 110px;
+    box-shadow: 0 2px 12px rgba(99,102,241,0.07);
+}
+@media (max-width: 768px) {
+    .dashboard-bg { min-height: 140vh; }
+    .stat-card { min-height: 80px; }
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Animation des compteurs
+function animateCounter(id, end) {
+    let el = document.getElementById(id);
+    if (!el) return;
+    let start = 0;
+    let duration = 900;
+    let step = Math.ceil(end / 30);
+    let current = start;
+    function update() {
+        current += step;
+        if (current >= end) current = end;
+        el.textContent = current;
+        if (current < end) setTimeout(update, duration / end);
+    }
+    update();
+}
+// Calcul du taux de participation moyen
+// function calcAvgCompletion() {
+//     let cards = document.querySelectorAll('.survey-card');
+//     let total = 0, complete = 0, count = 0;
+//     cards.forEach(card => {
+//         let bar = card.querySelector('.progress-bar');
+//         if (bar) {
+//             let percent = parseInt(bar.style.width);
+//             if (!isNaN(percent)) {
+//                 total += 100;
+//                 complete += percent;
+//                 count++;
+//             }
+//         }
+//     });
+//     let avg = count ? Math.round(complete / count) : 0;
+//     document.getElementById('avg-completion').textContent = avg + '%';
+// }
+document.addEventListener('DOMContentLoaded', function() {
+    // Animer les compteurs si besoin (ajuster les IDs si tu veux)
+    // animateCounter('total-surveys', ...);
+    // animateCounter('total-responses', ...);
+    // animateCounter('active-surveys', ...);
+    // animateCounter('closed-surveys', ...);
+    // calcAvgCompletion();
+});
+</script>
+{% endblock %}

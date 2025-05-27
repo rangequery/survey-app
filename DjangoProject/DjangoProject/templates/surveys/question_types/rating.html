@@ -1,0 +1,16 @@
+<div class="rating-container">
+    <div class="btn-group" role="group" aria-label="{% trans 'Évaluation' %}">
+        {% for option in question.get_options %}
+        <input type="radio" 
+               class="btn-check" 
+               name="question_{{ question.id }}" 
+               id="option_{{ option.id }}" 
+               value="{{ option.id }}"
+               {% if answer == option.id %}checked{% endif %}
+               {% if option.is_default and not answer %}checked{% endif %}>
+        <label class="btn btn-outline-primary" for="option_{{ option.id }}">
+            {{ option.text }}
+        </label>
+        {% endfor %}
+    </div>
+</div>

@@ -1,0 +1,6 @@
+<input type="date" 
+       name="question_{{ question.id }}" 
+       id="question_{{ question.id }}" 
+       class="form-control" 
+       {% if question.required %}required{% endif %}
+       {% if answer %}value="{{ answer }}"{% endif %}>

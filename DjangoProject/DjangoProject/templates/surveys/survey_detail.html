@@ -1,0 +1,254 @@
+{% extends 'base.html' %}
+{% load i18n %}
+
+{% block title %}{{ survey.title }} | {{ block.super }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-start mb-4">
+    <div>
+        <h1 class="mb-2">{{ survey.title }}</h1>
+        <p class="text-muted">
+            <i class="bi bi-person me-1"></i>{{ survey.creator.username }} | 
+            <i class="bi bi-calendar me-1"></i>{{ survey.created_at|date:"d/m/Y" }}
+        </p>
+    </div>
+    <div class="d-flex gap-2">
+        {% if can_edit %}
+        <a href="{% url 'surveys:edit_survey' survey.pk %}" class="btn btn-outline-primary">
+            <i class="bi bi-pencil me-1"></i>{% trans "Modifier" %}
+        </a>
+        {% endif %}
+        
+        {% if can_delete %}
+        <a href="{% url 'surveys:delete_survey' survey.pk %}" class="btn btn-outline-danger">
+            <i class="bi bi-trash me-1"></i>{% trans "Supprimer" %}
+        </a>
+        {% endif %}
+        
+        {% if survey.is_active %}
+        <a href="{% url 'surveys:take_survey' survey.pk %}" class="btn btn-primary">
+            <i class="bi bi-clipboard-check me-1"></i>{% trans "Répondre" %}
+        </a>
+        {% endif %}
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="card-title mb-0">{% trans "Détails du sondage" %}</h5>
+            </div>
+            <div class="card-body">
+                {% if survey.description %}
+                <div class="mb-4">
+                    <h6>{% trans "Description" %}</h6>
+                    <p>{{ survey.description }}</p>
+                </div>
+                {% endif %}
+                
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <h6>{% trans "Statut" %}</h6>
+                        <p>
+                            <span class="badge {% if survey.is_active %}bg-success{% else %}bg-secondary{% endif %}">
+                                {% if survey.is_active %}
+                                    {% trans "Actif" %}
+                                {% else %}
+                                    {% trans "Inactif" %}
+                                {% endif %}
+                            </span>
+                        </p>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>{% trans "Visibilité" %}</h6>
+                        <p>
+                            <span class="badge {% if survey.is_public %}bg-info{% else %}bg-warning{% endif %}">
+                                {% if survey.is_public %}
+                                    {% trans "Public" %}
+                                {% else %}
+                                    {% trans "Privé" %}
+                                {% endif %}
+                            </span>
+                        </p>
+                    </div>
+                </div>
+                
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <h6>{% trans "Date de début" %}</h6>
+                        <p>{{ survey.start_date|date:"d/m/Y H:i" }}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>{% trans "Date de fin" %}</h6>
+                        <p>{{ survey.end_date|date:"d/m/Y H:i"|default:"-" }}</p>
+                    </div>
+                </div>
+                
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>{% trans "Réponses anonymes" %}</h6>
+                        <p>
+                            {% if survey.allow_anonymous %}
+                                <i class="bi bi-check-circle text-success"></i> {% trans "Autorisées" %}
+                            {% else %}
+                                <i class="bi bi-x-circle text-danger"></i> {% trans "Non autorisées" %}
+                            {% endif %}
+                        </p>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>{% trans "Nombre maximum de réponses" %}</h6>
+                        <p>{{ survey.max_responses|default:"-" }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0">{% trans "Questions" %}</h5>
+                {% if can_edit %}
+                <a href="{% url 'surveys:add_question' survey_pk=survey.pk %}" class="btn btn-sm btn-primary">
+                    <i class="bi bi-plus-circle me-1"></i>{% trans "Ajouter une question" %}
+                </a>
+                {% endif %}
+            </div>
+            <div class="card-body">
+                {% if questions %}
+                    <div class="row g-3">
+                        {% for question in questions %}
+                        <div class="col-12">
+                            <div class="card shadow-sm mb-2">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <div>
+                                            <span class="badge bg-secondary me-2">{{ question.question_type.name|title }}</span>
+                                            {% if question.required %}
+                                                <span class="badge bg-danger">{% trans "Obligatoire" %}</span>
+                                            {% else %}
+                                                <span class="badge bg-success">{% trans "Facultatif" %}</span>
+                                            {% endif %}
+                                        </div>
+                                        {% if can_edit %}
+                                        <div class="btn-group">
+                                            <a href="{# TODO: url d'édition #}" class="btn btn-sm btn-outline-secondary" title="{% trans 'Modifier' %}"><i class="bi bi-pencil"></i></a>
+                                            <a href="{# TODO: url suppression #}" class="btn btn-sm btn-outline-danger" title="{% trans 'Supprimer' %}"><i class="bi bi-trash"></i></a>
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                    <h6 class="mb-1">{{ question.text }}</h6>
+                                    {% if question.help_text %}
+                                    <p class="text-muted small mb-2">{{ question.help_text }}</p>
+                                    {% endif %}
+                                    {% if question.question_type.has_options %}
+                                    <div class="mt-2">
+                                        <small class="text-muted">{% trans "Options:" %}</small>
+                                        <div class="d-flex flex-wrap gap-2 mt-1">
+                                            {% for option in question.get_options %}
+                                            <span class="badge bg-light text-dark border">{{ option.text }}{% if option.is_default %} <span class="badge bg-info ms-1">{% trans "Défaut" %}</span>{% endif %}</span>
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="alert alert-info">
+                        {% trans "Aucune question n'a été ajoutée à ce sondage." %}
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="card-title mb-0">{% trans "Statistiques" %}</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <div>{% trans "Nombre de réponses" %}</div>
+                    <div class="badge bg-primary">{{ response_count }}</div>
+                </div>
+                {% if statistics %}
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <div>{% trans "Réponses complètes" %}</div>
+                    <div class="badge bg-success">{{ statistics.complete_responses }}</div>
+                </div>
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <div>{% trans "Taux de complétion" %}</div>
+                    <div class="badge bg-info">{{ statistics.completion_rate }}%</div>
+                </div>
+                {% if statistics.average_completion_time %}
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <div>{% trans "Temps moyen" %}</div>
+                    <div class="badge bg-secondary">{{ statistics.average_completion_time }}</div>
+                </div>
+                {% endif %}
+                {% endif %}
+                {% if can_view_results %}
+                <div class="d-grid gap-2 mt-4">
+                    <a href="{% url 'surveys:results' survey.pk %}" class="btn btn-outline-primary">
+                        <i class="bi bi-bar-chart me-1"></i>{% trans "Voir les résultats détaillés" %}
+                    </a>
+                    <div class="btn-group">
+                        <button class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown">
+                            <i class="bi bi-download me-1"></i>{% trans "Exporter" %}
+                        </button>
+                        <ul class="dropdown-menu w-100">
+                            <li><a class="dropdown-item" href="{% url 'surveys:export_csv' survey.pk %}">CSV</a></li>
+                            <li><a class="dropdown-item" href="{% url 'surveys:export_excel' survey.pk %}">Excel</a></li>
+                        </ul>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        {% if can_edit %}
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="card-title mb-0">{% trans "Partage" %}</h5>
+            </div>
+            <div class="card-body">
+                <div class="input-group mb-3">
+                    <input type="text" class="form-control" value="{{ request.scheme }}://{{ request.get_host }}{% url 'surveys:take_survey' survey.pk %}" readonly>
+                    <button class="btn btn-outline-secondary" type="button" onclick="copyToClipboard(this)">
+                        <i class="bi bi-clipboard"></i>
+                    </button>
+                </div>
+                
+                <div class="d-grid">
+                    <button class="btn btn-outline-primary">
+                        <i class="bi bi-share me-1"></i>{% trans "Partager avec d'autres utilisateurs" %}
+                    </button>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function copyToClipboard(button) {
+    const input = button.previousElementSibling;
+    input.select();
+    document.execCommand('copy');
+    
+    const icon = button.querySelector('i');
+    icon.classList.remove('bi-clipboard');
+    icon.classList.add('bi-clipboard-check');
+    
+    setTimeout(() => {
+        icon.classList.remove('bi-clipboard-check');
+        icon.classList.add('bi-clipboard');
+    }, 2000);
+}
+</script>
+{% endblock %}

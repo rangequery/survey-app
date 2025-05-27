@@ -1,0 +1,19 @@
+<div class="form-check-list">
+    {% for option in question.get_options %}
+    <div class="form-check mb-2">
+        <input class="form-check-input" 
+               type="checkbox" 
+               name="question_{{ question.id }}" 
+               id="option_{{ option.id }}" 
+               value="{{ option.id }}"
+               {% if answer and option.id in answer %}checked{% endif %}
+               {% if option.is_default and not answer %}checked{% endif %}>
+        <label class="form-check-label" for="option_{{ option.id }}">
+            {{ option.text }}
+        </label>
+        {% if option.extra_info %}
+        <small class="d-block text-muted">{{ option.extra_info }}</small>
+        {% endif %}
+    </div>
+    {% endfor %}
+</div>

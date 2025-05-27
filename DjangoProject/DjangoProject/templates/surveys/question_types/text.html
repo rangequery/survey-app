@@ -1,0 +1,8 @@
+<input type="text" 
+       name="question_{{ question.id }}" 
+       id="question_{{ question.id }}" 
+       class="form-control" 
+       {% if question.required %}required{% endif %}
+       {% if question.validation_regex %}pattern="{{ question.validation_regex }}"{% endif %}
+       {% if question.validation_message %}title="{{ question.validation_message }}"{% endif %}
+       {% if answer %}value="{{ answer }}"{% endif %}>

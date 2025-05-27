@@ -1,0 +1,37 @@
+{% extends 'base.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "Supprimer le sondage" %} | {{ block.super }}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8 col-lg-6">
+        <div class="card">
+            <div class="card-header bg-danger text-white">
+                <h5 class="card-title mb-0">{% trans "Confirmer la suppression" %}</h5>
+            </div>
+            <div class="card-body">
+                <p class="mb-4">
+                    {% trans "Êtes-vous sûr de vouloir supprimer le sondage" %} <strong>{{ object.title }}</strong> ?
+                </p>
+                <p class="alert alert-warning">
+                    <i class="bi bi-exclamation-triangle me-2"></i>
+                    {% trans "Cette action est irréversible. Toutes les questions et réponses associées seront également supprimées." %}
+                </p>
+                
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="d-flex justify-content-between">
+                        <a href="{% url 'surveys:detail' object.pk %}" class="btn btn-outline-secondary">
+                            {% trans "Annuler" %}
+                        </a>
+                        <button type="submit" class="btn btn-danger">
+                            <i class="bi bi-trash me-1"></i>{% trans "Supprimer définitivement" %}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

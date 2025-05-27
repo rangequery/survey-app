@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Survey Completed" %} - {{ survey.title }}{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="card border-success">
+        <div class="card-header bg-success text-white">
+            <h4 class="card-title mb-0">{% trans "Thank You!" %}</h4>
+        </div>
+        <div class="card-body position-relative">
+            <div class="text-center mb-4">
+                <div id="success-animation" style="height: 100px;"></div>
+                <canvas id="confetti-canvas" style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;"></canvas>
+            </div>
+            {% if custom_message %}
+                <div class="alert alert-success">
+                    {{ custom_message }}
+                </div>
+            {% else %}
+                <h5 class="text-center">{% trans "Your response has been recorded successfully." %}</h5>
+                <p class="text-center">{% trans "Thank you for completing this survey!" %}</p>
+            {% endif %}
+            
+            <!-- Statistiques du sondage -->
+            <div class="row justify-content-center mt-4">
+                <div class="col-md-10">
+                    <div class="row g-3">
+                        <div class="col-md-3">
+                            <div class="card stat-card h-100 border-primary">
+                                <div class="card-body text-center">
+                                    <h6 class="card-title mb-1">{% trans "Réponses totales" %}</h6>
+                                    <div class="display-6 fw-bold text-primary">{{ total_responses }}</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card stat-card h-100 border-success">
+                                <div class="card-body text-center">
+                                    <h6 class="card-title mb-1">{% trans "Réponses complètes" %}</h6>
+                                    <div class="display-6 fw-bold text-success">{{ complete_responses }}</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card stat-card h-100 border-info">
+                                <div class="card-body text-center">
+                                    <h6 class="card-title mb-1">{% trans "Taux de complétion" %}</h6>
+                                    <div class="display-6 fw-bold text-info">{{ completion_rate }}%</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card stat-card h-100 border-secondary">
+                                <div class="card-body text-center">
+                                    <h6 class="card-title mb-1">{% trans "Nombre de questions" %}</h6>
+                                    <div class="display-6 fw-bold text-secondary">{{ questions_count }}</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-4 text-center">
+                <a href="{% url 'surveys:list' %}" class="btn btn-primary">
+                    <i class="bi bi-arrow-left me-2"></i>{% trans "Back to Surveys" %}
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/lottie-web@5.10.2/build/player/lottie.min.js"></script>
+<script>
+// Animation check animé
+lottie.loadAnimation({
+    container: document.getElementById('success-animation'),
+    renderer: 'svg',
+    loop: false,
+    autoplay: true,
+    path: 'https://assets2.lottiefiles.com/packages/lf20_jbrw3hcz.json' // checkmark animation
+});
+// Confettis simple
+function confetti() {
+    const canvas = document.getElementById('confetti-canvas');
+    const ctx = canvas.getContext('2d');
+    canvas.width = canvas.offsetWidth;
+    canvas.height = 200;
+    let pieces = [];
+    for (let i = 0; i < 80; i++) {
+        pieces.push({
+            x: Math.random() * canvas.width,
+            y: Math.random() * -canvas.height,
+            w: 8 + Math.random() * 8,
+            h: 8 + Math.random() * 8,
+            color: `hsl(${Math.random()*360},70%,60%)`,
+            dy: 2 + Math.random() * 3,
+            dx: Math.random() - 0.5
+        });
+    }
+    function draw() {
+        ctx.clearRect(0,0,canvas.width,canvas.height);
+        for (let p of pieces) {
+            ctx.fillStyle = p.color;
+            ctx.fillRect(p.x, p.y, p.w, p.h);
+        }
+    }
+    function update() {
+        for (let p of pieces) {
+            p.y += p.dy;
+            p.x += p.dx;
+            if (p.y > canvas.height) p.y = -10;
+        }
+    }
+    function loop() {
+        draw();
+        update();
+        requestAnimationFrame(loop);
+    }
+    loop();
+    setTimeout(()=>canvas.style.display='none', 2500);
+}
+window.onload = confetti;
+</script>
+{% endblock %}

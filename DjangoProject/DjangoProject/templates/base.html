@@ -1,0 +1,165 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="fr" class="h-100">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Application de Sondage Avancée{% endblock %}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    {% block extra_css %}{% endblock %}
+    <style>
+        body.dark-mode, .dark-mode .card, .dark-mode .navbar, .dark-mode .modal-content {
+            background-color: #181a1b !important;
+            color: #e0e0e0 !important;
+        }
+        .dark-mode .card, .dark-mode .modal-content {
+            border-color: #23272b !important;
+        }
+        .dark-mode .navbar {
+            background-color: #23272b !important;
+        }
+        .dark-mode .btn, .dark-mode .form-control, .dark-mode .form-select {
+            background-color: #23272b !important;
+            color: #e0e0e0 !important;
+            border-color: #444 !important;
+        }
+        .dark-mode .btn-primary, .dark-mode .btn-success, .dark-mode .btn-danger {
+            color: #fff !important;
+        }
+        .dark-mode .progress-bar {
+            background-color: #6366f1 !important;
+        }
+        .dark-mode .alert {
+            background-color: #23272b !important;
+            color: #e0e0e0 !important;
+            border-color: #444 !important;
+        }
+        .dark-mode .bg-white {
+            background-color: #23272b !important;
+        }
+        .dark-mode .border-secondary {
+            border-color: #444 !important;
+        }
+        .dark-mode .dropdown-menu {
+            background-color: #23272b !important;
+            color: #e0e0e0 !important;
+        }
+        .dark-mode .list-group-item {
+            background-color: #23272b !important;
+            color: #e0e0e0 !important;
+        }
+        .dark-mode .form-label, .dark-mode label {
+            color: #e0e0e0 !important;
+        }
+    </style>
+</head>
+<body class="d-flex flex-column h-100">
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
+            <a class="navbar-brand" href="{% url 'surveys:list' %}">
+                <i class="bi bi-clipboard-check me-2"></i>SurveyApp
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.resolver_match.url_name == 'list' %}active{% endif %}" href="{% url 'surveys:list' %}">
+                            <i class="bi bi-list-ul me-1"></i> Sondages
+                        </a>
+                    </li>
+                    {% if user.is_authenticated %}
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.resolver_match.url_name == 'create_survey' %}active{% endif %}" href="{% url 'surveys:create_survey' %}">
+                            <i class="bi bi-plus-circle me-1"></i> Créer un sondage
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'admin:index' %}">
+                            <i class="bi bi-gear me-1"></i> Administration
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+                <ul class="navbar-nav ms-auto align-items-center">
+                    <li class="nav-item me-2">
+                        <button id="theme-toggle" class="btn btn-outline-light btn-sm" title="Mode sombre/clair" style="font-size:1.2rem;">
+                            <i class="bi bi-moon-stars-fill" id="theme-icon"></i>
+                        </button>
+                    </li>
+                    <li class="nav-item">
+                        {% if user.is_authenticated %}
+                        <span class="navbar-text">
+                            <i class="bi bi-person-circle me-1"></i>{{ user.username }}
+                        </span>
+                        {% endif %}
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4 mb-5 flex-grow-1">
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+
+        {% block content %}{% endblock %}
+    </div>
+
+    <footer class="footer mt-auto py-3 bg-light">
+        <div class="container">
+            <div class="row">
+                <div class="col-md-6 text-center text-md-start">
+                    <span class="text-muted">© {% now "Y" %} Application de Sondage Avancée</span>
+                </div>
+                <div class="col-md-6 text-center text-md-end">
+                    <a href="#" class="text-muted me-3">Aide</a>
+                    <a href="#" class="text-muted me-3">Confidentialité</a>
+                    <a href="#" class="text-muted">Contact</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.0/dist/chart.min.js"></script>
+    <script src="{% static 'js/main.js' %}"></script>
+    <script>
+    // Mode sombre/clair
+    function setTheme(dark) {
+        if (dark) {
+            document.body.classList.add('dark-mode');
+            document.documentElement.classList.add('dark-mode');
+            localStorage.setItem('theme', 'dark');
+            document.getElementById('theme-icon').classList.remove('bi-moon-stars-fill');
+            document.getElementById('theme-icon').classList.add('bi-brightness-high-fill');
+        } else {
+            document.body.classList.remove('dark-mode');
+            document.documentElement.classList.remove('dark-mode');
+            localStorage.setItem('theme', 'light');
+            document.getElementById('theme-icon').classList.remove('bi-brightness-high-fill');
+            document.getElementById('theme-icon').classList.add('bi-moon-stars-fill');
+        }
+    }
+    document.getElementById('theme-toggle').onclick = function() {
+        const isDark = document.body.classList.contains('dark-mode');
+        setTheme(!isDark);
+    };
+    // Appliquer le thème au chargement
+    (function() {
+        const theme = localStorage.getItem('theme');
+        if (theme === 'dark') setTheme(true);
+    })();
+    </script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

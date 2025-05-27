@@ -1,0 +1,13 @@
+<select name="question_{{ question.id }}" 
+        id="question_{{ question.id }}" 
+        class="form-select"
+        {% if question.required %}required{% endif %}>
+    <option value="">{% trans "Sélectionnez une option" %}</option>
+    {% for option in question.get_options %}
+    <option value="{{ option.id }}"
+            {% if answer == option.id %}selected{% endif %}
+            {% if option.is_default and not answer %}selected{% endif %}>
+        {{ option.text }}
+    </option>
+    {% endfor %}
+</select>

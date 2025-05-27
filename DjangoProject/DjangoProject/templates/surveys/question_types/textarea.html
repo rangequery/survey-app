@@ -1,0 +1,5 @@
+<textarea name="question_{{ question.id }}" 
+          id="question_{{ question.id }}" 
+          class="form-control" 
+          rows="4"
+          {% if question.required %}required{% endif %}>{% if answer %}{{ answer }}{% endif %}</textarea>

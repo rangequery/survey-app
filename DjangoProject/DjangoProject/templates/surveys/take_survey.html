@@ -1,0 +1,217 @@
+{% extends 'base.html' %}
+{% load i18n %}
+
+{% block title %}{{ survey.title }} | {{ block.super }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>{{ survey.title }}</h1>
+    <a href="{% url 'surveys:list' %}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left me-1"></i>{% trans "Retour aux sondages" %}
+    </a>
+</div>
+
+{% if inactive_reason %}
+    <div class="alert alert-warning">
+        <i class="bi bi-exclamation-triangle me-2"></i>{{ inactive_reason }}
+    </div>
+{% elif needs_access_code %}
+    <div class="card">
+        <div class="card-body">
+            <h5 class="card-title">{% trans "Ce sondage nécessite un code d'accès" %}</h5>
+            <form method="get" class="mt-3">
+                <div class="mb-3">
+                    <label for="access_code" class="form-label">{% trans "Code d'accès" %}</label>
+                    <input type="text" class="form-control" id="access_code" name="access_code" required>
+                </div>
+                <button type="submit" class="btn btn-primary">{% trans "Accéder au sondage" %}</button>
+            </form>
+        </div>
+    </div>
+{% elif needs_login %}
+    <div class="card">
+        <div class="card-body">
+            <h5 class="card-title">{% trans "Connexion requise" %}</h5>
+            <p>{% trans "Vous devez être connecté pour répondre à ce sondage." %}</p>
+            <a href="{% url 'login' %}?next={{ request.path }}" class="btn btn-primary">{% trans "Se connecter" %}</a>
+        </div>
+    </div>
+{% else %}
+    <form method="post" action="{% url 'surveys:submit_survey' survey.pk %}" id="survey-form" autocomplete="off">
+        {% csrf_token %}
+        <div class="mb-4">
+            <div class="progress" style="height: 1.5rem;">
+                <div class="progress-bar bg-gradient" id="progress-bar" role="progressbar" style="width: 0%; font-weight: bold; font-size: 1rem; transition: width 0.5s;">
+                    0%
+                </div>
+            </div>
+            <div class="text-end mt-1">
+                <span id="progress-text" class="text-muted small"></span>
+            </div>
+        </div>
+        <div id="questions-stepper">
+            {% for question in questions %}
+            <div class="question-step card shadow-sm mb-4 question-container d-none" data-step="{{ forloop.counter0 }}">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <div>
+                            <span class="badge bg-secondary me-2">{{ question.question_type.name|title }}</span>
+                            {% if question.required %}
+                                <span class="badge bg-danger">{% trans "Obligatoire" %}</span>
+                            {% else %}
+                                <span class="badge bg-success">{% trans "Facultatif" %}</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <h5 class="question-text mb-1">{{ question.text }}</h5>
+                    {% if question.help_text %}
+                    <p class="text-muted small mb-2">{{ question.help_text }}</p>
+                    {% endif %}
+                    <div class="question-input mt-3">
+                        {% with answer_key=question.id %}
+                            {% with answer=answers|default_if_none:'' %}
+                                {% include "surveys/question_types/"|add:question.question_type.template_name|cut:'questions/' with question=question answer=answer %}
+                            {% endwith %}
+                        {% endwith %}
+                    </div>
+                    <div class="invalid-feedback d-block mt-2" style="display:none;"></div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        <div class="d-flex justify-content-between align-items-center fixed-bottom bg-white py-3 px-4 border-top shadow" style="z-index: 100;">
+            <button type="button" class="btn btn-outline-secondary" id="prev-btn" disabled>
+                <i class="bi bi-arrow-left me-1"></i>{% trans "Précédent" %}
+            </button>
+            <button type="button" class="btn btn-primary" id="next-btn">
+                {% trans "Suivant" %} <i class="bi bi-arrow-right ms-1"></i>
+            </button>
+            <button type="submit" class="btn btn-success d-none" id="submit-btn">
+                {% trans "Soumettre" %} <i class="bi bi-check-circle ms-1"></i>
+            </button>
+        </div>
+    </form>
+{% endif %}
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .question-step {
+        transition: opacity 0.4s, transform 0.4s;
+    }
+    .question-step.active {
+        display: block !important;
+        opacity: 1;
+        transform: translateY(0);
+    }
+    .question-step.inactive {
+        opacity: 0;
+        transform: translateY(30px);
+        pointer-events: none;
+    }
+    .fixed-bottom {
+        max-width: 700px;
+        margin: 0 auto;
+        left: 0;
+        right: 0;
+        border-radius: 1rem 1rem 0 0;
+    }
+    @media (max-width: 768px) {
+        .fixed-bottom {
+            max-width: 100%;
+            border-radius: 0;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const steps = Array.from(document.querySelectorAll('.question-step'));
+    const progressBar = document.getElementById('progress-bar');
+    const progressText = document.getElementById('progress-text');
+    const prevBtn = document.getElementById('prev-btn');
+    const nextBtn = document.getElementById('next-btn');
+    const submitBtn = document.getElementById('submit-btn');
+    let currentStep = 0;
+
+    function showStep(index) {
+        steps.forEach((step, i) => {
+            step.classList.remove('active', 'inactive');
+            step.classList.add('d-none');
+            if (i === index) {
+                step.classList.remove('d-none');
+                step.classList.add('active');
+            } else if (i < index) {
+                step.classList.add('inactive');
+            }
+        });
+        updateProgress();
+        prevBtn.disabled = index === 0;
+        nextBtn.classList.toggle('d-none', index === steps.length - 1);
+        submitBtn.classList.toggle('d-none', index !== steps.length - 1);
+        // Scroll to top of question
+        setTimeout(() => {
+            steps[index].scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 100);
+    }
+
+    function updateProgress() {
+        const percent = Math.round(((currentStep + 1) / steps.length) * 100);
+        progressBar.style.width = percent + '%';
+        progressBar.textContent = percent + '%';
+        progressText.textContent = `${currentStep + 1} / ${steps.length} {% trans 'questions' %}`;
+    }
+
+    function validateStep(index) {
+        const step = steps[index];
+        const required = step.querySelector('.badge.bg-danger');
+        const input = step.querySelector('input, textarea, select');
+        const feedback = step.querySelector('.invalid-feedback');
+        let valid = true;
+        if (required) {
+            if (input) {
+                if ((input.type === 'checkbox' || input.type === 'radio')) {
+                    valid = step.querySelectorAll('input:checked').length > 0;
+                } else {
+                    valid = input.value.trim() !== '';
+                }
+            }
+            if (!valid) {
+                feedback.style.display = 'block';
+                feedback.textContent = '{% trans "Cette question est obligatoire" %}';
+            } else {
+                feedback.style.display = 'none';
+                feedback.textContent = '';
+            }
+        }
+        return valid;
+    }
+
+    prevBtn.addEventListener('click', function() {
+        if (currentStep > 0) {
+            currentStep--;
+            showStep(currentStep);
+        }
+    });
+    nextBtn.addEventListener('click', function() {
+        if (validateStep(currentStep)) {
+            currentStep++;
+            showStep(currentStep);
+        } else {
+            // Scroll to error
+            steps[currentStep].scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    });
+    submitBtn.addEventListener('click', function(e) {
+        if (!validateStep(currentStep)) {
+            e.preventDefault();
+            steps[currentStep].scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    });
+    // Initial display
+    showStep(currentStep);
+});
+</script>
+{% endblock %}

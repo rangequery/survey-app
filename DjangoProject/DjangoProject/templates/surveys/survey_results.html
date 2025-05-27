@@ -1,0 +1,588 @@
+{% extends 'base.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "Résultats" %} - {{ survey.title }} | {{ block.super }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+<style>
+    .chart-container {
+        position: relative;
+        height: 300px;
+        width: 100%;
+        margin-bottom: 2rem;
+    }
+    .response-count {
+        font-size: 2.5rem;
+        font-weight: bold;
+        color: #6366f1;
+    }
+    .stat-card {
+        transition: all 0.3s ease;
+    }
+    .stat-card:hover {
+        transform: translateY(-5px);
+    }
+    .cross-tab-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    .cross-tab-table th, .cross-tab-table td {
+        border: 1px solid #dee2e6;
+        padding: 0.5rem;
+        text-align: center;
+    }
+    .cross-tab-table th {
+        background-color: #f8f9fa;
+    }
+    .cross-tab-table td.highlight {
+        background-color: rgba(99, 102, 241, 0.1);
+    }
+    .heatmap-cell {
+        transition: all 0.3s ease;
+    }
+    .heatmap-cell:hover {
+        transform: scale(1.05);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>{% trans "Résultats" %} - {{ survey.title }}</h1>
+    <div class="d-flex gap-2">
+        <a href="{% url 'surveys:detail' survey.pk %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-1"></i>{% trans "Retour aux détails" %}
+        </a>
+        <div class="dropdown">
+            <button class="btn btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                <i class="bi bi-download me-1"></i>{% trans "Exporter" %}
+            </button>
+            <ul class="dropdown-menu">
+                <li><a class="dropdown-item" href="{% url 'surveys:export_csv' survey.pk %}?date_filter={{ date_filter }}&start_date={{ start_date }}&end_date={{ end_date }}">{% trans "CSV" %}</a></li>
+                <li><a class="dropdown-item" href="{% url 'surveys:export_excel' survey.pk %}?date_filter={{ date_filter }}&start_date={{ start_date }}&end_date={{ end_date }}">{% trans "Excel" %}</a></li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<!-- Date Filter Card -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="card-title mb-0">{% trans "Filtrer les résultats" %}</h5>
+    </div>
+    <div class="card-body">
+        <form method="get" class="row g-3">
+            <div class="col-md-4">
+                <label for="date_filter" class="form-label">{% trans "Plage de dates" %}</label>
+                <select id="date_filter" name="date_filter" class="form-select" onchange="toggleCustomDateInputs()">
+                    <option value="all" {% if date_filter == 'all' %}selected{% endif %}>{% trans "Tout" %}</option>
+                    <option value="today" {% if date_filter == 'today' %}selected{% endif %}>{% trans "Aujourd'hui" %}</option>
+                    <option value="yesterday" {% if date_filter == 'yesterday' %}selected{% endif %}>{% trans "Hier" %}</option>
+                    <option value="this_week" {% if date_filter == 'this_week' %}selected{% endif %}>{% trans "Cette semaine" %}</option>
+                    <option value="last_week" {% if date_filter == 'last_week' %}selected{% endif %}>{% trans "Semaine dernière" %}</option>
+                    <option value="this_month" {% if date_filter == 'this_month' %}selected{% endif %}>{% trans "Ce mois" %}</option>
+                    <option value="last_month" {% if date_filter == 'last_month' %}selected{% endif %}>{% trans "Mois dernier" %}</option>
+                    <option value="custom" {% if date_filter == 'custom' %}selected{% endif %}>{% trans "Personnalisé" %}</option>
+                </select>
+            </div>
+            <div id="custom_date_inputs" class="row g-3 {% if date_filter == 'custom' %}d-flex{% else %}d-none{% endif %}">
+                     <div class="col-md-4">
+                    <label for="start_date" class="form-label">{% trans "Date de début" %}</label>
+                    <input type="text" id="start_date" name="start_date" class="form-control datepicker" value="{% if start_date %}{{ start_date }}{% endif %}">
+                </div>
+                <div class="col-md-4">
+                    <label for="end_date" class="form-label">{% trans "Date de fin" %}</label>
+                    <input type="text" id="end_date" name="end_date" class="form-control datepicker" value="{% if end_date %}{{ end_date }}{% endif %}">
+                </div>
+            </div>
+            <div class="col-12">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-filter me-1"></i>{% trans "Appliquer les filtres" %}
+                </button>
+                <a href="{% url 'surveys:results' survey.pk %}" class="btn btn-outline-secondary">
+                    <i class="bi bi-x-circle me-1"></i>{% trans "Effacer les filtres" %}
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Statistics Cards -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card stat-card h-100">
+            <div class="card-body text-center">
+                <h5 class="card-title">{% trans "Réponses totales" %}</h5>
+                <p class="response-count">{{ total_responses }}</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stat-card h-100">
+            <div class="card-body text-center">
+                <h5 class="card-title">{% trans "Réponses complètes" %}</h5>
+                <p class="response-count">{{ complete_responses }}</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stat-card h-100">
+            <div class="card-body text-center">
+                <h5 class="card-title">{% trans "Taux de complétion" %}</h5>
+                <p class="response-count">{{ completion_rate }}%</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stat-card h-100">
+            <div class="card-body text-center">
+                <h5 class="card-title">{% trans "Nombre de questions" %}</h5>
+                <p class="response-count">{{ questions|length }}</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Response Trend Chart -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="card-title mb-0">{% trans "Tendance des réponses" %}</h5>
+    </div>
+    <div class="card-body">
+        <div class="chart-container">
+            <canvas id="trendChart"></canvas>
+        </div>
+    </div>
+</div>
+
+<!-- Response Overview Chart -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="card-title mb-0">{% trans "Aperçu des réponses par question" %}</h5>
+    </div>
+    <div class="card-body">
+        <div class="chart-container">
+            <canvas id="responsesChart"></canvas>
+        </div>
+    </div>
+</div>
+
+<!-- Cross-Tabulation Analysis -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="card-title mb-0">{% trans "Analyse croisée" %}</h5>
+    </div>
+    <div class="card-body">
+        <form method="get" class="row g-3 mb-4">
+            <input type="hidden" name="date_filter" value="{{ date_filter }}">
+            {% if date_filter == 'custom' %}
+            <input type="hidden" name="start_date" value="{{ start_date }}">
+            <input type="hidden" name="end_date" value="{{ end_date }}">
+            {% endif %}
+            
+            <div class="col-md-5">
+                <label for="question1" class="form-label">{% trans "Question 1" %}</label>
+                <select id="question1" name="question1" class="form-select">
+                    <option value="">{% trans "Sélectionner une question" %}</option>
+                    {% for question in questions %}
+                        {% if question.question_type.has_options %}
+                        <option value="{{ question.id }}" {% if cross_tab_data and cross_tab_data.question1.id == question.id %}selected{% endif %}>
+                            {{ question.text }}
+                        </option>
+                        {% endif %}
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="col-md-5">
+                <label for="question2" class="form-label">{% trans "Question 2" %}</label>
+                <select id="question2" name="question2" class="form-select">
+                    <option value="">{% trans "Sélectionner une question" %}</option>
+                    {% for question in questions %}
+                        {% if question.question_type.has_options %}
+                        <option value="{{ question.id }}" {% if cross_tab_data and cross_tab_data.question2.id == question.id %}selected{% endif %}>
+                            {{ question.text }}
+                        </option>
+                        {% endif %}
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="col-md-2 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary w-100">
+                    {% trans "Analyser" %}
+                </button>
+            </div>
+        </form>
+        
+        {% if cross_tab_data %}
+            <h6 class="mb-3">{% trans "Résultats de l'analyse croisée" %}</h6>
+            
+            <div class="table-responsive mb-4">
+                <table class="cross-tab-table">
+                    <thead>
+                        <tr>
+                            <th></th>
+                            <th colspan="{{ cross_tab_data.options2|length }}">{{ cross_tab_data.question2.text }}</th>
+                        </tr>
+                        <tr>
+                            <th>{{ cross_tab_data.question1.text }}</th>
+                            {% for option in cross_tab_data.options2 %}
+                            <th>{{ option.text }}</th>
+                            {% endfor %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for option1 in cross_tab_data.options1 %}
+                        <tr>
+                            <th>{{ option1.text }}</th>
+                            {% for col in cross_tab_data.options2 %}
+                                {% with col_index=forloop.counter0 %}
+                                    <td class="{% if cross_tab_data.data|length > forloop.parentloop.counter0 and cross_tab_data.data|length > 0 and cross_tab_data.data|default_if_none:'' %}highlight{% endif %}">
+                                        {{ cross_tab_data.data|default_if_none:''|slice:forloop.parentloop.counter0|default_if_none:''|slice:col_index|default_if_none:'0' }}
+                                    </td>
+                                {% endwith %}
+                            {% endfor %}
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="chart-container">
+                <canvas id="heatmapChart"></canvas>
+            </div>
+        {% else %}
+            <div class="alert alert-info">
+                {% trans "Sélectionnez deux questions pour voir comment les réponses sont corrélées entre elles." %}
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Question Details -->
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="card-title mb-0">{% trans "Détails par question" %}</h5>
+        <a href="?refresh=1" class="btn btn-sm btn-outline-secondary">
+            <i class="bi bi-arrow-clockwise me-1"></i>{% trans "Rafraîchir les statistiques" %}
+        </a>
+    </div>
+    <div class="card-body">
+        <div class="accordion" id="questionsAccordion">
+            {% for question in questions %}
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="heading{{ question.id }}">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse{{ question.id }}">
+                        {{ question.text }}
+                        <span class="badge bg-primary ms-2">{{ question.answers.count }} {% trans "réponses" %}</span>
+                    </button>
+                </h2>
+                <div id="collapse{{ question.id }}" class="accordion-collapse collapse" data-bs-parent="#questionsAccordion">
+                    <div class="accordion-body">
+                        {% if question.question_type.has_options %}
+                            <div class="mb-4">
+                                <h6>{% trans "Distribution des réponses" %}</h6>
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="chart-container" style="height: 200px;">
+                                            <canvas id="questionChart{{ question.id }}"></canvas>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="chart-container" style="height: 200px;">
+                                            <canvas id="questionBarChart{{ question.id }}"></canvas>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="mt-3">
+                                    <ul class="list-group">
+                                        {% for option in question.get_options %}
+                                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                                {{ option.text }}
+                                                <span class="badge bg-primary rounded-pill">
+                                                    {{ option.answer_count|default:"0" }}
+                                                </span>
+                                            </li>
+                                        {% endfor %}
+                                    </ul>
+                                </div>
+                            </div>
+                        {% else %}
+                            <div class="alert alert-info">
+                                {% trans "Les réponses textuelles sont disponibles dans l'export CSV." %}
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+{% comment %}
+Précharger toutes les données Django pour JavaScript
+{% endcomment %}
+<script id="survey-data" type="application/json">
+{
+    "trend_data": [
+        {% for item in trend_data %}
+        {
+            "date": "{{ item.date|escapejs }}",
+            "count": {{ item.count }}
+        }{% if not forloop.last %},{% endif %}
+        {% endfor %}
+    ],
+    "questions": [
+        {% for question in questions %}
+        {
+            "id": {{ question.id }},
+            "text": "{{ question.text|truncatechars:30|escapejs }}",
+            "answersCount": {{ question.answers.count }}{% if question.question_type.has_options %},
+            "options": [
+                {% for option in question.get_options %}
+                {
+                    "text": "{{ option.text|escapejs }}",
+                    "answerCount": {{ option.answer_count|default:"0" }}
+                }{% if not forloop.last %},{% endif %}
+                {% endfor %}
+            ]{% endif %}
+        }{% if not forloop.last %},{% endif %}
+        {% endfor %}
+    ]{% if cross_tab_data %},
+    "cross_tab_data": {
+        "options1": [
+            {% for option in cross_tab_data.options1 %}
+            "{{ option.text|escapejs }}"{% if not forloop.last %},{% endif %}
+            {% endfor %}
+        ],
+        "options2": [
+            {% for option in cross_tab_data.options2 %}
+            "{{ option.text|escapejs }}"{% if not forloop.last %},{% endif %}
+            {% endfor %}
+        ],
+        "data": [
+            {% for row in cross_tab_data.data %}
+            [{% for cell in row %}{{ cell }}{% if not forloop.last %},{% endif %}{% endfor %}]{% if not forloop.last %},{% endif %}
+            {% endfor %}
+        ]
+    }{% endif %}
+}
+</script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Récupérer toutes les données JSON préchargées
+    const surveyData = JSON.parse(document.getElementById('survey-data').textContent);
+    
+    // Initialiser les date pickers
+    flatpickr(".datepicker", {
+        dateFormat: "Y-m-d"
+    });
+    
+    // Fonction pour basculer les entrées de date personnalisées
+    window.toggleCustomDateInputs = function() {
+        const dateFilter = document.getElementById('date_filter').value;
+        const customDateInputs = document.getElementById('custom_date_inputs');
+        
+        if (dateFilter === 'custom') {
+            customDateInputs.style.display = 'flex';
+        } else {
+            customDateInputs.style.display = 'none';
+        }
+    };
+    
+    // Créer le graphique de tendance
+    const trendCtx = document.getElementById('trendChart').getContext('2d');
+    const trendData = {
+        labels: surveyData.trend_data.map(item => item.date),
+        datasets: [{
+            label: "Réponses",
+            data: surveyData.trend_data.map(item => item.count),
+            backgroundColor: 'rgba(99, 102, 241, 0.2)',
+            borderColor: 'rgb(99, 102, 241)',
+            borderWidth: 2,
+            tension: 0.3,
+            fill: true
+        }]
+    };
+    
+    new Chart(trendCtx, {
+        type: 'line',
+        data: trendData,
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        precision: 0
+                    }
+                }
+            }
+        }
+    });
+    
+    // Créer le graphique des réponses
+    const ctx = document.getElementById('responsesChart').getContext('2d');
+    const chartData = {
+        labels: surveyData.questions.map(question => question.text),
+        datasets: [{
+            label: "Nombre de réponses",
+            data: surveyData.questions.map(question => question.answersCount),
+            backgroundColor: 'rgba(99, 102, 241, 0.5)',
+            borderColor: 'rgb(99, 102, 241)',
+            borderWidth: 1
+        }]
+    };
+    
+    new Chart(ctx, {
+        type: 'bar',
+        data: chartData,
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        precision: 0
+                    }
+                }
+            }
+        }
+    });
+    
+    // Créer des graphiques pour chaque question avec options
+    surveyData.questions.forEach(question => {
+        if (!question.options) return;
+        
+        // Graphique circulaire
+        const ctxQuestion = document.getElementById(`questionChart${question.id}`);
+        if (ctxQuestion) {
+            const ctx = ctxQuestion.getContext('2d');
+            const questionDataObj = {
+                labels: question.options.map(opt => opt.text),
+                datasets: [{
+                    data: question.options.map(opt => opt.answerCount),
+                    backgroundColor: [
+                        'rgba(255, 99, 132, 0.7)',
+                        'rgba(54, 162, 235, 0.7)',
+                        'rgba(255, 206, 86, 0.7)',
+                        'rgba(75, 192, 192, 0.7)',
+                        'rgba(153, 102, 255, 0.7)',
+                        'rgba(255, 159, 64, 0.7)',
+                        'rgba(199, 199, 199, 0.7)',
+                        'rgba(83, 102, 255, 0.7)',
+                        'rgba(40, 159, 64, 0.7)',
+                        'rgba(210, 199, 199, 0.7)'
+                    ]
+                }]
+            };
+            
+            new Chart(ctx, {
+                type: 'pie',
+                data: questionDataObj,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'right'
+                        }
+                    }
+                }
+            });
+        }
+        
+        // Graphique à barres
+        const ctxBarQuestion = document.getElementById(`questionBarChart${question.id}`);
+        if (ctxBarQuestion) {
+            const ctx = ctxBarQuestion.getContext('2d');
+            const questionDataObj = {
+                labels: question.options.map(opt => opt.text),
+                datasets: [{
+                    data: question.options.map(opt => opt.answerCount),
+                    backgroundColor: 'rgba(99, 102, 241, 0.7)'
+                }]
+            };
+            
+            new Chart(ctx, {
+                type: 'bar',
+                data: questionDataObj,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                precision: 0
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    });
+    
+    // Créer le graphique heatmap pour la tabulation croisée si les données existent
+    if (surveyData.cross_tab_data) {
+        const heatmapCtx = document.getElementById('heatmapChart').getContext('2d');
+        
+        const datasets = [];
+        for (let i = 0; i < surveyData.cross_tab_data.options2.length; i++) {
+            const rowData = [];
+            for (let j = 0; j < surveyData.cross_tab_data.data.length; j++) {
+                rowData.push(surveyData.cross_tab_data.data[j][i]);
+            }
+            
+            datasets.push({
+                label: surveyData.cross_tab_data.options2[i],
+                data: rowData,
+                backgroundColor: `rgba(${50 + i * 40}, ${100 + i * 20}, ${150 + i * 10}, 0.7)`
+            });
+        }
+        
+        const heatmapData = {
+            labels: surveyData.cross_tab_data.options1,
+            datasets: datasets
+        };
+        
+        new Chart(heatmapCtx, {
+            type: 'bar',
+            data: heatmapData,
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: {
+                        stacked: true
+                    },
+                    y: {
+                        stacked: true,
+                        beginAtZero: true,
+                        ticks: {
+                            precision: 0
+                        }
+                    }
+                }
+            }
+        });
+    }
+});
+</script>
+{% endblock %}
